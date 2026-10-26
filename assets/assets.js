@@ -1,4 +1,4 @@
-import logo from "./logo.svg"
+import logo from "./logo.png"
 import gs_logo from "./gs_logo.jpg"
 import happy_store from "./happy_store.webp"
 import upload_area from "./upload_area.svg"

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import ProductCard from './ProductCard'
 import { addToCart } from '@/lib/features/cart/cartSlice'
-import { ArrowRight, Check, Flame, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, Zap } from 'lucide-react'
+import { ArrowRight, Check, Flame, Heart, ShieldCheck, ShoppingBag, Sparkles, Star, Tag, Truck, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const BestSelling = () => {
@@ -14,7 +14,8 @@ const BestSelling = () => {
 
     const products = useSelector(state => state.product.list)
     const [selectedCategory, setSelectedCategory] = useState('All')
-    const [isSpotlightAdded, setIsSpotlightAdded] = useState(false)
+    const [addedIds, setAddedIds] = useState({})
+    const [wishlistedIds, setWishlistedIds] = useState({})
 
     // Sort products by popularity (review count)
     const sortedProducts = products.slice().sort((a, b) => b.rating.length - a.rating.length)
@@ -27,27 +28,30 @@ const BestSelling = () => {
         ? sortedProducts
         : sortedProducts.filter(p => p.category === selectedCategory)
 
-    // Spotlight item (top seller)
-    const spotlightProduct = sortedProducts[0]
+    // Rating helper
+    const getRating = (prod) => {
+        const count = prod?.rating?.length || 0
+        const avg = count > 0 ? prod.rating.reduce((a, c) => a + (c.rating || 0), 0) / count : 5
+        return { avg, count }
+    }
 
-    // Calculate spotlight rating
-    const spotlightRatingCount = spotlightProduct?.rating?.length || 0
-    const spotlightRating = spotlightRatingCount > 0
-        ? spotlightProduct.rating.reduce((acc, curr) => acc + (curr.rating || 0), 0) / spotlightRatingCount
-        : 5
+    // Discount helper
+    const getDiscount = (prod) => {
+        if (prod?.mrp && prod.mrp > prod.price) {
+            return Math.round(((prod.mrp - prod.price) / prod.mrp) * 100)
+        }
+        return 0
+    }
 
-    const spotlightDiscount = spotlightProduct?.mrp && spotlightProduct.mrp > spotlightProduct.price
-        ? Math.round(((spotlightProduct.mrp - spotlightProduct.price) / spotlightProduct.mrp) * 100)
-        : 0
-
-    const handleSpotlightAddToCart = (e) => {
+    // 1-Click Add to Cart
+    const handleAddToCart = (e, prod) => {
         e.preventDefault()
         e.stopPropagation()
-        if (!spotlightProduct) return
+        if (!prod) return
 
-        dispatch(addToCart({ productId: spotlightProduct.id }))
-        setIsSpotlightAdded(true)
-        toast.success(`${spotlightProduct.name} added to cart!`, {
+        dispatch(addToCart({ productId: prod.id }))
+        setAddedIds(prev => ({ ...prev, [prod.id]: true }))
+        toast.success(`${prod.name} added to cart!`, {
             icon: '🛍️',
             style: {
                 borderRadius: '12px',
@@ -56,12 +60,39 @@ const BestSelling = () => {
                 fontSize: '13px',
             }
         })
-        setTimeout(() => setIsSpotlightAdded(false), 1200)
+        setTimeout(() => {
+            setAddedIds(prev => ({ ...prev, [prod.id]: false }))
+        }, 1200)
+    }
+
+    // Wishlist Toggle
+    const handleWishlistToggle = (e, prod) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const nextState = !wishlistedIds[prod.id]
+        setWishlistedIds(prev => ({ ...prev, [prod.id]: nextState }))
+        toast(nextState ? 'Saved to wishlist!' : 'Removed from wishlist', {
+            icon: nextState ? '❤️' : '🤍',
+            style: {
+                borderRadius: '12px',
+                background: '#1e293b',
+                color: '#fff',
+                fontSize: '13px',
+            }
+        })
     }
 
     if (!products || products.length === 0) {
         return null
     }
+
+    // 6 Products for the exact 6 Bento slots
+    const p1 = sortedProducts[0] || products[0]
+    const p2 = sortedProducts[1] || products[1]
+    const p3 = sortedProducts[2] || products[2]
+    const p4 = sortedProducts[3] || products[3]
+    const p5 = sortedProducts[4] || products[4]
+    const p6 = sortedProducts[5] || products[5]
 
     return (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-16 sm:my-24">
@@ -70,24 +101,25 @@ const BestSelling = () => {
                 <div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-600 mb-3">
                         <Sparkles size={14} className="fill-orange-600" />
-                        <span>Customer Favorites</span>
+                        <span>Curated Bento Collection</span>
                     </div>
                     <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
                         Best Selling <span className="bg-gradient-to-r from-orange-600 to-amber-500 bg-clip-text text-transparent">Products</span>
                     </h2>
                     <p className="text-slate-500 text-sm sm:text-base mt-2 max-w-xl">
-                        Our highest-rated tech and gadgets, backed by thousands of 5-star customer reviews.
+                        Explore our top trending items organized in a modern bento showcase.
                     </p>
                 </div>
 
                 {/* Categories & View All Link */}
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <div className="inline-flex items-center p-1 bg-slate-100/80 rounded-xl">
+                    <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl">
                         {categories.slice(0, 5).map((cat) => (
                             <button
                                 key={cat}
+                                type="button"
                                 onClick={() => setSelectedCategory(cat)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${selectedCategory === cat
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${selectedCategory === cat
                                     ? 'bg-white text-orange-600 shadow-xs'
                                     : 'text-slate-600 hover:text-slate-900'
                                     }`}
@@ -108,164 +140,331 @@ const BestSelling = () => {
 
             {/* Bento Grid (when 'All' is active) */}
             {selectedCategory === 'All' ? (
-                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                    {/* BENTO HERO SPOTLIGHT: #1 Best Seller (spans 2 cols, 2 rows on desktop) */}
-                    {spotlightProduct && (
-                        <div className="col-span-2 lg:col-span-2 lg:row-span-2 relative bg-gradient-to-br from-orange-50/70 via-white to-amber-50/40 rounded-xl border border-orange-200/70 p-5 sm:p-8 flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-xl hover:shadow-orange-500/10 hover:border-orange-300 transition-all duration-300 group">
-                            {/* Top row */}
-                            <div className="flex items-center justify-between w-full z-10">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-l text-[11px] sm:text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-xs">
-                                    <Flame size={14} className="fill-white" />
-                                    #1 Top Seller
-                                </span>
-                                <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-orange-600 bg-orange-100 px-3 py-1 rounded-full">
-                                    {spotlightProduct.category}
-                                </span>
-                            </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                            {/* Showcase Image Area */}
-                            <div className="relative my-4 sm:my-8 flex items-center justify-center min-h-[220px] sm:min-h-[280px]">
-                                <div className="absolute inset-0 bg-radial from-orange-400/20 via-amber-200/10 to-transparent blur-2xl pointer-events-none" />
-                                <Link href={`/product/${spotlightProduct.id}`} className="relative z-10 flex items-center justify-center">
-                                    <Image
-                                        src={spotlightProduct.images[0]}
-                                        alt={spotlightProduct.name}
-                                        width={500}
-                                        height={500}
-                                        className="max-h-48 sm:max-h-68 w-auto object-contain drop-shadow-md group-hover:scale-108 transition-transform duration-500 ease-out"
-                                    />
-                                </Link>
-                            </div>
-
-                            {/* Bottom Content Area */}
-                            <div className="relative z-10 flex flex-col gap-2.5">
-                                {/* Rating Row */}
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center">
-                                        {Array(5).fill('').map((_, i) => (
-                                            <Star key={i} size={14} className="text-transparent" fill={spotlightRating >= i + 1 ? '#F59E0B' : '#E2E8F0'} />
-                                        ))}
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-800">{spotlightRating.toFixed(1)}</span>
-                                    <span className="text-xs text-slate-400">({spotlightRatingCount} verified reviews)</span>
-                                </div>
-
-                                {/* Title */}
-                                <Link href={`/product/${spotlightProduct.id}`}>
-                                    <h3 className="text-xl sm:text-2xl font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
-                                        {spotlightProduct.name}
+                    {/* 1. TALL LEFT CARD (col-span-1 row-span-2) - "Smart Picks" */}
+                    {p1 && (
+                        <Link
+                            href={`/product/${p1.id}`}
+                            className="md:col-span-1 md:row-span-2 relative bg-white rounded-xl border border-slate-200 p-6 sm:p-7 flex flex-col justify-between shadow-xs hover:shadow-xl hover:border-orange-200/80 transition-all duration-300 group overflow-hidden min-h-[480px]"
+                        >
+                            {/* Header */}
+                            <div>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-xl font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                                        Smart Picks
                                     </h3>
-                                </Link>
-
-                                {/* Value perks */}
-                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                                    <span className="flex items-center gap-1 font-medium">
-                                        <Truck size={14} className="text-orange-500" /> Free 2-Day Delivery
-                                    </span>
-                                    <span className="text-slate-300">•</span>
-                                    <span className="flex items-center gap-1 font-medium">
-                                        <ShieldCheck size={14} className="text-emerald-500" /> 1-Year Guarantee
+                                    <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-xs">
+                                        #1 Popular
                                     </span>
                                 </div>
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-1">
+                                    {p1.category}
+                                </p>
+                            </div>
 
-                                {/* Price & Action CTA */}
-                                <div className="flex items-center justify-between pt-4 mt-2 border-t border-orange-100">
+                            {/* Centered Image with ambient light */}
+                            <div className="relative my-auto py-6 flex items-center justify-center">
+                                <div className="absolute size-44 rounded-full bg-orange-100/40 blur-2xl pointer-events-none group-hover:bg-orange-200/50 transition-all" />
+                                <Image
+                                    src={p1.images[0]}
+                                    alt={p1.name}
+                                    width={400}
+                                    height={400}
+                                    className="max-h-52 w-auto object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500 ease-out"
+                                />
+                            </div>
+
+                            {/* Footer Content */}
+                            <div>
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Star size={13} className="text-transparent fill-amber-400" />
+                                    <span className="text-xs font-bold text-slate-700">{getRating(p1).avg.toFixed(1)}</span>
+                                    <span className="text-[11px] text-slate-400">({getRating(p1).count} reviews)</span>
+                                </div>
+                                <h4 className="font-semibold text-slate-800 text-sm line-clamp-1 mb-3">
+                                    {p1.name}
+                                </h4>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                                     <div>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-                                                {currency}{spotlightProduct.price}
-                                            </span>
-                                            {spotlightProduct.mrp > spotlightProduct.price && (
-                                                <span className="text-sm text-slate-400 line-through">
-                                                    {currency}{spotlightProduct.mrp}
-                                                </span>
+                                        <div className="flex items-baseline gap-1.5">
+                                            <span className="text-xl font-extrabold text-slate-900">{currency}{p1.price}</span>
+                                            {p1.mrp > p1.price && (
+                                                <span className="text-xs text-slate-400 line-through">{currency}{p1.mrp}</span>
                                             )}
                                         </div>
-                                        {spotlightDiscount > 0 && (
-                                            <span className="text-xs font-bold text-emerald-600">
-                                                Save {currency}{spotlightProduct.mrp - spotlightProduct.price} ({spotlightDiscount}% OFF)
-                                            </span>
-                                        )}
+                                        <p className="text-[11px] text-slate-400">Find the right product faster</p>
                                     </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <Link
-                                            href={`/product/${spotlightProduct.id}`}
-                                            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:border-orange-500 hover:text-orange-600 font-semibold text-xs sm:text-sm transition-all"
-                                        >
-                                            Details
-                                        </Link>
-                                        <button
-                                            onClick={handleSpotlightAddToCart}
-                                            type="button"
-                                            className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl flex items-center gap-1.5 font-semibold text-xs sm:text-sm transition-all shadow-md cursor-pointer active:scale-95 ${isSpotlightAdded
-                                                ? 'bg-emerald-600 text-white shadow-emerald-500/25'
-                                                : 'bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white shadow-orange-500/25'
-                                                }`}
-                                        >
-                                            {isSpotlightAdded ? (
-                                                <>
-                                                    <Check size={16} strokeWidth={2.5} />
-                                                    <span>Added</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <ShoppingBag size={16} />
-                                                    <span>Add to Cart</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={(e) => handleAddToCart(e, p1)}
+                                        type="button"
+                                        className={`size-10 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 shadow-sm cursor-pointer ${addedIds[p1.id]
+                                            ? 'bg-emerald-600 text-white shadow-emerald-500/25 scale-105'
+                                            : 'bg-slate-900 hover:bg-orange-600 text-white hover:shadow-md hover:shadow-orange-500/25'
+                                            }`}
+                                    >
+                                        {addedIds[p1.id] ? <Check size={17} strokeWidth={2.5} /> : <ShoppingBag size={16} />}
+                                    </button>
                                 </div>
                             </div>
-                        </div>
+                        </Link>
                     )}
 
-                    {/* Product Card 1 */}
-                    {sortedProducts[1] && <ProductCard product={sortedProducts[1]} />}
-
-                    {/* Product Card 2 */}
-                    {sortedProducts[2] && <ProductCard product={sortedProducts[2]} />}
-
-                    {/* BENTO PROMO TILE: Special Discount Banner Card */}
-                    <div className="col-span-2 sm:col-span-1 relative bg-gradient-to-br from-orange-500 via-orange-600/20 to-orange-700/10 text-white rounded-xl p-5 sm:p-6 flex flex-col justify-between overflow-hidden shadow-lg shadow-slate-900/10 group">
-                        <div className="absolute -top-12 -right-12 size-36 rounded-full bg-white blur-2xl group-hover:bg-orange-500/35 transition-all pointer-events-none" />
-                        <div>
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-900 text-orange-400 border border-orange-500/30 mb-3">
-                                <Zap size={12} className="fill-orange-400" />
-                                Limited Offer
-                            </div>
-                            <h4 className="text-lg font-bold text-white leading-snug">
-                                Save 20% on Your First Order
-                            </h4>
-                            <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
-                                Use our welcome coupon code at checkout for instant savings.
-                            </p>
-                        </div>
-
-                        <div className="pt-4 mt-4 border-t border-slate-700/60">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-[11px] text-slate-400 font-medium">Coupon Code</span>
-                                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-700 border border-slate-700 text-white">
-                                    NEW20
+                    {/* 2. WIDE TOP RIGHT CARD (col-span-2) - "Fast Checkout" */}
+                    {p2 && (
+                        <Link
+                            href={`/product/${p2.id}`}
+                            className="md:col-span-2 relative bg-white rounded-xl border border-slate-200 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xs hover:shadow-xl hover:border-orange-200/80 transition-all duration-300 group overflow-hidden min-h-[220px]"
+                        >
+                            {/* Left Text */}
+                            <div className="flex-1 max-w-sm">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-600 mb-2">
+                                    <Zap size={11} className="fill-orange-600" />
+                                    Fast Checkout
                                 </span>
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                                    {p2.name}
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">
+                                    Smooth payment experiences with fewer steps and instant express confirmation.
+                                </p>
+
+                                <div className="flex items-center gap-3 mt-4">
+                                    <div>
+                                        <span className="text-2xl font-extrabold text-slate-900">{currency}{p2.price}</span>
+                                        {p2.mrp > p2.price && (
+                                            <span className="text-xs text-slate-400 line-through ml-2">{currency}{p2.mrp}</span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={(e) => handleAddToCart(e, p2)}
+                                        type="button"
+                                        className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer ${addedIds[p2.id]
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'bg-slate-900 hover:bg-orange-600 text-white'
+                                            }`}
+                                    >
+                                        {addedIds[p2.id] ? <Check size={14} /> : <ShoppingBag size={14} />}
+                                        {addedIds[p2.id] ? 'Added' : 'Add to Cart'}
+                                    </button>
+                                </div>
                             </div>
-                            <Link
-                                href="/shop"
-                                className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/20 transition-all"
-                            >
-                                Shop Deals <ArrowRight size={14} />
-                            </Link>
-                        </div>
-                    </div>
 
-                    {/* Product Card 3 */}
-                    {sortedProducts[3] && <ProductCard product={sortedProducts[3]} />}
+                            {/* Right Image */}
+                            <div className="relative shrink-0 flex items-center justify-center size-36 sm:size-44">
+                                <div className="absolute inset-0 bg-orange-100/40 rounded-full blur-xl group-hover:bg-orange-200/50 transition-all pointer-events-none" />
+                                <Image
+                                    src={p2.images[0]}
+                                    alt={p2.name}
+                                    width={300}
+                                    height={300}
+                                    className="max-h-36 sm:max-h-40 w-auto object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500 ease-out"
+                                />
+                            </div>
+                        </Link>
+                    )}
 
-                    {/* Additional Product Cards in balanced 4-column flow */}
-                    {/* {sortedProducts.slice(4, 8).map((product, index) => (
-                        <ProductCard key={product.id || index} product={product} />
-                    ))} */}
+                    {/* 3. MIDDLE SQUARE LEFT (col-span-1) - "Best Deals" */}
+                    {p3 && (
+                        <Link
+                            href={`/product/${p3.id}`}
+                            className="md:col-span-1 relative bg-white rounded-xl border border-slate-200 p-6 flex flex-col justify-between shadow-xs hover:shadow-xl hover:border-orange-200/80 transition-all duration-300 group overflow-hidden min-h-[220px]"
+                        >
+                            {/* Top info */}
+                            <div>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                                        Best Deals
+                                    </h3>
+                                    {getDiscount(p3) > 0 && (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white">
+                                            {getDiscount(p3)}% OFF
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1 line-clamp-1">{p3.name}</p>
+                            </div>
+
+                            {/* Bottom row with price and corner image */}
+                            <div className="flex items-end justify-between mt-4">
+                                <div>
+                                    <div className="text-lg font-extrabold text-slate-900">{currency}{p3.price}</div>
+                                    <button
+                                        onClick={(e) => handleAddToCart(e, p3)}
+                                        type="button"
+                                        className={`mt-2 size-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${addedIds[p3.id] ? 'bg-emerald-600 text-white' : 'bg-slate-900 hover:bg-orange-600 text-white'
+                                            }`}
+                                    >
+                                        {addedIds[p3.id] ? <Check size={14} /> : <ShoppingBag size={14} />}
+                                    </button>
+                                </div>
+
+                                {/* Floating image at bottom right (like the % tag in reference) */}
+                                <div className="relative size-24 shrink-0 flex items-center justify-center">
+                                    <Image
+                                        src={p3.images[0]}
+                                        alt={p3.name}
+                                        width={200}
+                                        height={200}
+                                        className="max-h-24 w-auto object-contain drop-shadow-md group-hover:scale-115 transition-transform duration-500 ease-out"
+                                    />
+                                </div>
+                            </div>
+                        </Link>
+                    )}
+
+                    {/* 4. MIDDLE SQUARE RIGHT (col-span-1) - "Wishlist Favorite" */}
+                    {p4 && (
+                        <Link
+                            href={`/product/${p4.id}`}
+                            className="md:col-span-1 relative bg-white rounded-xl border border-slate-200 p-6 flex flex-col justify-between shadow-xs hover:shadow-xl hover:border-orange-200/80 transition-all duration-300 group overflow-hidden min-h-[220px]"
+                        >
+                            {/* Top info with wishlist button */}
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                                        Wishlist
+                                    </h3>
+                                    <p className="text-xs text-slate-500 mt-1 line-clamp-1">{p4.name}</p>
+                                </div>
+                                <button
+                                    onClick={(e) => handleWishlistToggle(e, p4)}
+                                    type="button"
+                                    className="size-8 rounded-full bg-slate-50 hover:bg-rose-50 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                                    aria-label="Wishlist"
+                                >
+                                    <Heart
+                                        size={15}
+                                        fill={wishlistedIds[p4.id] ? '#f43f5e' : 'transparent'}
+                                        className={wishlistedIds[p4.id] ? 'text-rose-500' : 'text-slate-400'}
+                                    />
+                                </button>
+                            </div>
+
+                            {/* Floating image in middle/right */}
+                            <div className="my-2 flex items-center justify-center">
+                                <Image
+                                    src={p4.images[0]}
+                                    alt={p4.name}
+                                    width={200}
+                                    height={200}
+                                    className="max-h-24 w-auto object-contain drop-shadow-md group-hover:scale-115 transition-transform duration-500 ease-out"
+                                />
+                            </div>
+
+                            {/* Bottom row */}
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                                <span className="text-base font-extrabold text-slate-900">{currency}{p4.price}</span>
+                                <button
+                                    onClick={(e) => handleAddToCart(e, p4)}
+                                    type="button"
+                                    className={`size-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${addedIds[p4.id] ? 'bg-emerald-600 text-white' : 'bg-slate-900 hover:bg-orange-600 text-white'
+                                        }`}
+                                >
+                                    {addedIds[p4.id] ? <Check size={14} /> : <ShoppingBag size={14} />}
+                                </button>
+                            </div>
+                        </Link>
+                    )}
+
+                    {/* 5. WIDE BOTTOM LEFT CARD (col-span-2) - "Secure Pay" */}
+                    {p5 && (
+                        <Link
+                            href={`/product/${p5.id}`}
+                            className="md:col-span-2 relative bg-white rounded-xl border border-slate-200 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xs hover:shadow-xl hover:border-orange-200/80 transition-all duration-300 group overflow-hidden min-h-[220px]"
+                        >
+                            {/* Left Text */}
+                            <div className="flex-1 max-w-sm">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 mb-2">
+                                    <ShieldCheck size={12} className="text-emerald-600" />
+                                    Secure Pay & Warranty
+                                </span>
+                                <h3 className="text-xl font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                                    {p5.name}
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">
+                                    Protected payment methods and 1-year verified guarantee built for safe shopping.
+                                </p>
+
+                                <div className="flex items-center gap-3 mt-4">
+                                    <div>
+                                        <span className="text-2xl font-extrabold text-slate-900">{currency}{p5.price}</span>
+                                        {p5.mrp > p5.price && (
+                                            <span className="text-xs text-slate-400 line-through ml-2">{currency}{p5.mrp}</span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={(e) => handleAddToCart(e, p5)}
+                                        type="button"
+                                        className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer ${addedIds[p5.id]
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'bg-slate-900 hover:bg-orange-600 text-white'
+                                            }`}
+                                    >
+                                        {addedIds[p5.id] ? <Check size={14} /> : <ShoppingBag size={14} />}
+                                        {addedIds[p5.id] ? 'Added' : 'Add to Cart'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Right Image */}
+                            <div className="relative shrink-0 flex items-center justify-center size-36 sm:size-44">
+                                <div className="absolute inset-0 bg-emerald-100/30 rounded-full blur-xl group-hover:bg-emerald-200/40 transition-all pointer-events-none" />
+                                <Image
+                                    src={p5.images[0]}
+                                    alt={p5.name}
+                                    width={300}
+                                    height={300}
+                                    className="max-h-36 sm:max-h-40 w-auto object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500 ease-out"
+                                />
+                            </div>
+                        </Link>
+                    )}
+
+                    {/* 6. BOTTOM RIGHT SQUARE (col-span-1) - "Rewards" */}
+                    {p6 && (
+                        <Link
+                            href={`/product/${p6.id}`}
+                            className="md:col-span-1 relative bg-white rounded-xl border border-slate-200 p-6 flex flex-col justify-between shadow-xs hover:shadow-xl hover:border-orange-200/80 transition-all duration-300 group overflow-hidden min-h-[220px]"
+                        >
+                            {/* Top info */}
+                            <div>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full mb-1">
+                                    <Tag size={10} /> Exclusive
+                                </span>
+                                <h3 className="text-lg font-bold text-slate-900 group-hover:text-orange-600 transition-colors mt-1">
+                                    Rewards
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1 line-clamp-1">{p6.name}</p>
+                            </div>
+
+                            {/* Centered Image */}
+                            <div className="my-2 flex items-center justify-center">
+                                <Image
+                                    src={p6.images[0]}
+                                    alt={p6.name}
+                                    width={200}
+                                    height={200}
+                                    className="max-h-24 w-auto object-contain drop-shadow-md group-hover:scale-115 transition-transform duration-500 ease-out"
+                                />
+                            </div>
+
+                            {/* Bottom row */}
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                                <span className="text-base font-extrabold text-slate-900">{currency}{p6.price}</span>
+                                <button
+                                    onClick={(e) => handleAddToCart(e, p6)}
+                                    type="button"
+                                    className={`size-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${addedIds[p6.id] ? 'bg-emerald-600 text-white' : 'bg-slate-900 hover:bg-orange-600 text-white'
+                                        }`}
+                                >
+                                    {addedIds[p6.id] ? <Check size={14} /> : <ShoppingBag size={14} />}
+                                </button>
+                            </div>
+                        </Link>
+                    )}
+
                 </div>
             ) : (
                 /* Category Filtered Grid */
